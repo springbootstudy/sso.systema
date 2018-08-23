@@ -8,7 +8,9 @@ import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -27,6 +29,7 @@ import org.springframework.util.StringUtils;
 
 import com.ctsi.springboot.a.entity.AjaxData;
 import com.ctsi.springboot.a.util.Constants;
+import com.ctsi.springboot.a.util.Http;
 import com.ctsi.springboot.a.util.JacksonUtil;
 import com.ctsi.springboot.a.util.JwtUtil;
 
@@ -62,7 +65,10 @@ public class JwtLoginFilter implements Filter  {
 		
 		HttpServletRequest req = (HttpServletRequest) request;
 		HttpServletResponse rep = (HttpServletResponse) response;
-		log.info("## " + req.getQueryString() + ", " + req.getMethod() + ", " + req.getServletPath() + ", " + req.getUserPrincipal());
+//		req.getRequestURL();
+		String query = req.getQueryString();
+		String hostIpPort = request.getServerName() + ":" + request.getServerPort();
+		log.info("## " + hostIpPort + ", " + query + ", " + req.getMethod() + ", " + req.getServletPath() + ", " + req.getUserPrincipal());
 		
 //		Enumeration<String> names = req.getAttributeNames();
 //		while (names.hasMoreElements()) {
@@ -101,6 +107,34 @@ public class JwtLoginFilter implements Filter  {
 		} 
 		else { // 不在过滤url之外
 			response.setContentType("application/json; charset=utf-8");
+			
+			/*
+			 * 这里需要验证 ST 是否有效
+			 * 有效，生成 Token 写到响应头中，并返回正常的资源请求
+			 */
+			// 例子中只有一个参数，多个参数的情况下需要截取
+			if (!StringUtils.isEmpty(query) && query.startsWith("st=")) {
+				String url = "http://sso.sevenzero.org:8070/validateServiceTicket?" + query + "&system=" + hostIpPort;
+				log.info("验证 ST 的地址 " + url);
+				
+				String result = Http.getStrContentByGet(url);
+				log.info(result);
+				if (!StringUtils.isEmpty(result)) {
+					result = result.trim();
+					// 验证成功
+					if (Boolean.valueOf(result)) {
+						log.info("验证成功");
+						
+						Map<String, Object> claims = new HashMap<>();
+						String token = JwtUtil.generateToken(claims);
+						
+						rep.setHeader("token", token);
+						
+						chain.doFilter(request, response);
+						return;
+					}
+				}
+			}
 			
 			AjaxData ajaxData;
 			String token = req.getHeader("token");

@@ -63,6 +63,13 @@ public class IndexController {
 		return new ResponseEntity<String>("OK-" + session.getId(), HttpStatus.OK);
 	}
 	
+	@RequestMapping("/hello")
+	public ResponseEntity<String> hello(HttpServletRequest req, HttpSession session) {
+		log.info("## hello " + session.getId());
+		
+		return new ResponseEntity<String>("OK-" + session.getId(), HttpStatus.OK);
+	}
+	
 	@RequestMapping(value = "/login", method = RequestMethod.POST)
 	public Object login(@RequestBody User user) {
 		String username = user.getUsername();
